@@ -1,0 +1,42 @@
+services:
+  duplicate-manager:
+    build: .
+    container_name: synology-duplicate-manager
+    ports:
+      - "8787:8787"
+    environment:
+      NAS_ROOT: "/"
+      SCAN_ROOTS: /volume1/homes
+      PHOTO_ROOTS: /volume1/homes
+      DB_PATH: /data/duplicates.db
+      SETTINGS_PATH: /data/settings.json
+      EXCLUDE_DIRS: "#recycle,#snapshot,docker"
+      EXCLUDE_AT_PREFIX: "true"
+      HASH_CHUNK_SIZE: "4194304"
+      PHOTO_DATA_DIR: /data/photo-search
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: nas_photos
+      PHOTO_SCAN_ON_START: "false"
+      PHOTO_BATCH_SIZE: "16"
+      PHOTO_SEARCH_LIMIT: "60"
+      THUMBNAIL_SIZE: "480"
+    volumes:
+      - /volume1/homes:/volume1/homes
+      - /volume1/docker/synology-duplicate-manager/data:/data
+      - /volume1/docker/synology-duplicate-manager/model-cache:/root/.cache/huggingface
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    container_name: synology-duplicate-manager-qdrant
+    volumes:
+      - /volume1/docker/synology-duplicate-manager/qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
